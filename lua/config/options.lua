@@ -21,7 +21,12 @@ vim.opt.softtabstop = 2
 -- Other
 vim.opt.scrolloff = 8
 -- vim.opt.wrap = false
+--
+vim.opt.showtabline = 2
 
 vim.opt.termguicolors = true
 
-
+vim.api.nvim_set_hl(0, "Normal", { bg = "#120E27" })
+vim.api.nvim_set_hl(0, "NormalFloat", { bg = "#0E0A23" })
+vim.api.nvim_set_hl(0, "ColorColumn", { bg = "none" })
+vim.api.nvim_set_hl(0, "LineNr", { fg = "#6B7280", bg = "none" })

@@ -1,157 +1,201 @@
-
 return {
+  -- Mason для управления инструментами
+  {
+    "williamboman/mason.nvim",
+    config = function()
+      require("mason").setup({
+        ensure_installed = { "eslint", "prettierd", "stylua" }, -- Форматировщики
+      })
+    end,
+  },
+
+  -- Mason-LSPConfig для автоматической установки LSP
+  {
+    "williamboman/mason-lspconfig.nvim",
+    dependencies = { "williamboman/mason.nvim" },
+    config = function()
+      require("mason-lspconfig").setup({
+        -- ensure_installed = { "lua_ls", "rust_analyzer", "tailwindcss", "emmet_ls", "ts_ls" },
+        ensure_installed = { "lua_ls", "rust_analyzer", "tailwindcss", "emmet_ls" },
+      })
+    end,
+  },
+
+  -- LSP Config
   {
     "neovim/nvim-lspconfig",
     dependencies = {
-      "jose-elias-alvarez/typescript.nvim",
-      init = function()
-        require("lazyvim.util").lsp.on_attach(function(_, buffer)
-          -- stylua: ignore
-          vim.keymap.set("n", "<leader>co", "TypescriptOrganizeImports", { buffer = buffer, desc = "Organize Imports" })
-          vim.keymap.set("n", "<leader>cR", "TypescriptRenameFile", { desc = "Rename File", buffer = buffer })
-        end)
-      end,
-    },
-    ---@class PluginLspOpts
-    opts = {
-      ---@type lspconfig.options
-      diagnostics = {
-        -- Включаем виртуальный текст (показ ошибок рядом с кодом)
-        virtual_text = {
-          prefix = "●", -- Символ перед ошибкой (можно заменить, например, на "▎" или "■")
-          spacing = 4, -- Отступ от текста
-          source = "if_many", -- Показывать источник ошибки только если их несколько
-        },
-        -- Включаем подчеркивание ошибок
-        underline = true,
-        -- Включаем знаки в колонке слева (гаттер)
-        signs = {
-          active = true,
-          values = {
-            { name = "DiagnosticSignError", text = "✘" },
-            { name = "DiagnosticSignWarn", text = "▲" },
-            { name = "DiagnosticSignInfo", text = "ℹ" },
-            { name = "DiagnosticHint", text = "➤" },
-          },
-        },
-        -- Показывать всплывающее окно с ошибкой при наведении курсора
-        float = {
-          border = "rounded", -- Скругленные углы для окна
-          source = "always", -- Всегда показывать источник ошибки
-          header = "", -- Убрать заголовок
-          prefix = "", -- Убрать префикс
-        },
-        severity_sort = true, -- Сортировать по уровню серьезности (ошибки выше предупреждений)
-      },
-      servers = {
-        -- tsserver will be automatically installed with mason and loaded with lspconfig
-        tsserver = function(_, opts)
-          require("typescript").setup({ server = opts })
-          return true
-        end,
-      },
-      -- you can do any additional lsp server setup here
-      -- return true if you don't want this server to be setup with lspconfig
-      ---@type table<string, fun(server:string, opts:_.lspconfig.options):boolean?>
-      setup = {
-        -- example to setup with typescript.nvim
-        -- Specify * to use this function as a fallback for any server
-        -- ["*"] = function(server, opts) end,
-      },
+      "hrsh7th/nvim-cmp",
+      "hrsh7th/cmp-nvim-lsp",
+      "williamboman/mason-lspconfig.nvim",
     },
     config = function()
       local lspconfig = require("lspconfig")
-      lspconfig.lua_ls.setup({})
-      lspconfig.gopls.setup({})
-      lspconfig.ts_ls.setup({})
+      local capabilities = require("cmp_nvim_lsp").default_capabilities()
+
+      -- Кастомный сервер для cssmodules
+      lspconfig.util.default_config = vim.tbl_extend("force", lspconfig.util.default_config, {
+        cssmodules = {
+          cmd = { "cssmodules-language-server" },
+          filetypes = {
+            "css",
+            "scss",
+            "sass",
+            "javascript",
+            "javascriptreact",
+            "typescript",
+            "typescriptreact",
+          },
+          root_dir = lspconfig.util.root_pattern("package.json", ".git"),
+          init_options = { camelCase = true },
+        },
+      })
+
+      -- lspconfig.cssmodules.setup({
+      --   capabilities = capabilities,
+      -- })
+
+      lspconfig.cssls.setup({
+        capabilities = capabilities,
+        settings = {
+          css = { validate = true, lint = { unknownProperties = "warning" } },
+          scss = { validate = true, lint = { unknownProperties = "warning" } },
+          sass = { validate = true, lint = { unknownProperties = "warning" } },
+          less = { validate = true },
+        },
+        filetypes = { "css", "scss", "sass", "less" }, -- Убрали "cssmodules", так как он отдельно
+      })
+
+      -- lspconfig.ts_ls.setup({
+      -- 	capabilities = capabilities,
+      -- 	filetypes = { "javascript", "javascriptreact", "typescript", "typescriptreact", "jsx", "tsx" },
+      -- 	on_attach = function(client, bufnr)
+      -- 		print("TypeScript LSP attached")
+      -- 		client.server_capabilities.documentFormattingProvider = false
+      -- 	end,
+      -- })
+
+      require("typescript-tools").setup({
+        capabilities = require("cmp_nvim_lsp").default_capabilities(),
+        on_attach = function(client, bufnr)
+          print("TypeScript Tools LSP attached")
+          client.server_capabilities.documentFormattingProvider = false
+        end,
+        settings = {
+          -- Настройки для TypeScript
+          separate_diagnostic_server = false,
+          tsserver_max_memory = 1024, -- Ограничение памяти до 1 ГБ
+          tsserver_file_preferences = {
+            includeInlayParameterNameHints = "literals", -- Менее ресурсоемко, чем "all"
+            includeInlayFunctionLikeReturnTypeHints = false, -- Отключаем для скорости
+          },
+          -- tsserver_file_preferences = {
+          -- 	includeInlayParameterNameHints = "all",
+          -- 	includeInlayFunctionLikeReturnTypeHints = true,
+          -- },
+        },
+      })
+
+      lspconfig.tailwindcss.setup({
+        capabilities = capabilities,
+        settings = {
+          tailwindCSS = {
+            validate = true,
+            lint = {
+              cssConflict = "warning",
+              invalidApply = "error",
+              invalidScreen = "error",
+              invalidVariant = "error",
+              invalidConfigPath = "error",
+              invalidTailwindDirective = "error",
+              recommendedVariantOrder = "warning",
+            },
+            classAttributes = { "class", "className", "class:list", "classList", "ngClass" },
+            includeLanguages = {
+              eelixir = "html-eex",
+              eruby = "erb",
+              templ = "html",
+              htmlangular = "html",
+            },
+          },
+        },
+      })
+
+      lspconfig.lua_ls.setup({ capabilities = capabilities })
+      lspconfig.rust_analyzer.setup({ capabilities = capabilities })
+      lspconfig.emmet_ls.setup({ capabilities = capabilities })
     end,
   },
 
-  {
-    "williamboman/mason.nvim",
-    opts = {
-      ensure_installed = {
-        "stylua",
-        "shellcheck",
-        "shfmt",
-        "flake8",
-      },
-    },
-  },
+  -- Tailwind Tools
   {
     "luckasRanarison/tailwind-tools.nvim",
-    name = "tailwind-tools",
-    build = ":UpdateRemotePlugins",
-    dependencies = {
-      "nvim-treesitter/nvim-treesitter",
-      "nvim-telescope/telescope.nvim", -- optional
-      "neovim/nvim-lspconfig", -- optional
-    },
-    opts = {}, -- your configuration
-  },
-  {
-    "olrtg/nvim-emmet",
-    config = function()
-      vim.keymap.set({ "n", "v" }, "<leader>xe", require("nvim-emmet").wrap_with_abbreviation)
-    end,
-  },
-  {
-    "williamboman/mason.nvim",
-    "williamboman/mason-lspconfig.nvim",
-    "neovim/nvim-lspconfig",
+    dependencies = { "nvim-treesitter/nvim-treesitter", "neovim/nvim-lspconfig" },
     opts = {
-      ensure_installed = {
-        "lua_ls",
-        "rust_analyzer",
-        "bashls",
-        "tailwindcss",
-        "cssmodules_ls",
-        "css_variables",
-        "cssls",
-        "dockerls",
-        "docker_compose_language_service",
-        "dotls",
-        "emmet_language_server",
-        "emmet_ls",
-        "gopls",
-        "html",
-        "superhtml",
-        "eslint",
-        "ts_ls",
-        "jsonls",
-        "ast_grep",
-        "prismals",
-        "pyright",
-        "somesass_ls",
-        "yamlls",
+      document_color = {
+        enabled = true,
+        kind = "inline", -- Легче, чем "foreground"
       },
     },
+  },
+
+  -- CSS Var Viewer
+  {
+    "farias-hecdin/CSSVarViewer",
+    ft = "css",
+    config = true,
+  },
+
+  -- Tree-sitter (необходим для autotag и tailwind-tools)
+  {
+    "nvim-treesitter/nvim-treesitter",
+    build = ":TSUpdate",
     config = function()
-      ensure_installed = {
-        "lua_ls",
-        "rust_analyzer",
-        "bashls",
-        "tailwindcss",
-        "cssmodules_ls",
-        "css_variables",
-        "cssls",
-        "dockerls",
-        "docker_compose_language_service",
-        "dotls",
-        "emmet_language_server",
-        "emmet_ls",
-        "gopls",
-        "html",
-        "superhtml",
-        "eslint",
-        "ts_ls",
-        "jsonls",
-        "ast_grep",
-        "prismals",
-        "pyright",
-        "somesass_ls",
-        "yamlls",
-      }
+      require("nvim-treesitter.configs").setup({
+        ensure_installed = { "javascript", "typescript", "tsx", "css", "scss", "html", "lua" },
+        highlight = {
+          enable = true,
+          additional_vim_regex_highlighting = false, -- Ускоряет работу
+        },
+        autotag = { enable = true },
+        incremental_selection = { enable = false }, -- Отключаем, если не используете
+      })
     end,
+  },
+
+  -- Автозакрытие тегов
+  {
+    "windwp/nvim-ts-autotag",
+    dependencies = { "nvim-treesitter/nvim-treesitter" },
+    config = function()
+      require("nvim-ts-autotag").setup({
+        opts = {
+          enable_close = true,
+          enable_rename = true,
+          enable_close_on_slash = true,
+        },
+        filetypes = { "javascript", "typescript", "javascriptreact", "typescriptreact", "jsx", "tsx" },
+      })
+    end,
+  },
+
+  -- TypeScript Tools
+  {
+    "pmizio/typescript-tools.nvim",
+    dependencies = { "nvim-lua/plenary.nvim", "neovim/nvim-lspconfig" },
+    opts = {},
+  },
+
+  -- Emmet
+  {
+    "olrtg/nvim-emmet",
+  },
+
+  -- Форматирование (через Mason)
+  {
+    "williamboman/mason.nvim",
+    opts = {
+      ensure_installed = { "eslint", "prettierd", "stylua" }, -- Исправлено "eslint-lsp" на "eslint"
+    },
   },
 }

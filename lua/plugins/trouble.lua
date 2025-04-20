@@ -1,5 +1,13 @@
-
 return {
+  {
+    "dmmulroy/tsc.nvim",
+    config = function()
+      require("tsc").setup({
+        auto_open_qflist = false,
+        use_trouble_qflist = true, -- отправляет ошибки в Trouble
+      })
+    end,
+  },
   {
     "folke/trouble.nvim",
     cmd = "Trouble",
